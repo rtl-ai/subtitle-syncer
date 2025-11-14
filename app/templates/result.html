@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Subtitle synchronized successfully 🎬</h2>
+  <p>
+    Video basename: <strong>{{ job.video_basename }}</strong><br />
+    Detected encoding: <strong>{{ job.detected_encoding }}</strong><br />
+    Output encoding: <strong>utf-8</strong>
+  </p>
+
+  <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+    <a class="button" href="/download/{{ job.job_id }}">Download synced subtitle</a>
+    {% if job.zip_path %}
+      <a class="button" href="/download/{{ job.job_id }}/zip">Download ZIP (with backups)</a>
+    {% endif %}
+  </div>
+
+  <section class="logs">
+    <h3>Processing logs</h3>
+    {% for name, entry in job.log_messages.items() %}
+      <div class="log-entry">
+        <h4>{{ name | upper }}</h4>
+        <pre>{{ entry.stdout.strip() or "(no stdout)" }}</pre>
+        {% if entry.stderr.strip() %}
+          <details>
+            <summary>stderr</summary>
+            <pre>{{ entry.stderr.strip() }}</pre>
+          </details>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </section>
+
+  <p style="margin-top: 2rem;">
+    The job will remain available for download for approximately {{ ttl_minutes }} minutes.
+  </p>
+{% endblock %}

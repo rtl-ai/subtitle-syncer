@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+  <form action="/process" method="post" enctype="multipart/form-data">
+    <label for="video_file">Video file<span style="color: #dc2626">*</span></label>
+    <input
+      type="file"
+      id="video_file"
+      name="video_file"
+      accept=".mkv,.mp4,.avi,.mov"
+      required
+    />
+
+    <label for="subtitle_file">Subtitle file<span style="color: #dc2626">*</span></label>
+    <input
+      type="file"
+      id="subtitle_file"
+      name="subtitle_file"
+      accept=".smi,.srt,.ass,.ssa,.sub,.vtt"
+      required
+    />
+
+    <label for="encoding_override">Encoding override (optional)</label>
+    <input
+      type="text"
+      id="encoding_override"
+      name="encoding_override"
+      placeholder="e.g. utf-8, cp949, windows-1252"
+    />
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="force_sami" name="force_sami" value="true" />
+      <label for="force_sami" style="margin-bottom: 0">Subtitle is SAMI (.smi)</label>
+    </div>
+
+    <input type="submit" value="Sync subtitles" />
+  </form>
+{% endblock %}
