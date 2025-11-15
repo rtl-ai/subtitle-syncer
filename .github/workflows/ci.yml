@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: uv pip install --python $UV_PYTHON .[dev]
       - name: Ruff lint
-        run: uv run --python $UV_PYTHON ruff check .
+        run: $UV_PYTHON -m ruff check .
 
   tests:
     runs-on: ubuntu-latest
@@ -34,7 +34,7 @@ jobs:
       - name: Install dependencies
         run: uv pip install --python $UV_PYTHON .[dev]
       - name: Run pytest
-        run: uv run --python $UV_PYTHON pytest
+        run: $UV_PYTHON -m pytest
 
   coverage:
     runs-on: ubuntu-latest
@@ -50,5 +50,5 @@ jobs:
         run: uv pip install --python $UV_PYTHON .[dev]
       - name: Coverage report
         run: |
-          uv run --python $UV_PYTHON coverage run -m pytest
-          uv run --python $UV_PYTHON coverage report
+          $UV_PYTHON -m coverage run -m pytest
+          $UV_PYTHON -m coverage report

@@ -51,14 +51,14 @@ Run linting, the unit test suite, and coverage reports through uv:
 
 ```bash
 # Ruff lint checks
-uv run --python ./py312/bin/python ruff check .
+./py312/bin/python -m ruff check .
 
 # Unit tests
-uv run --python ./py312/bin/python pytest
+./py312/bin/python -m pytest
 
 # Coverage (includes running pytest)
-uv run --python ./py312/bin/python coverage run -m pytest
-uv run --python ./py312/bin/python coverage report
+./py312/bin/python -m coverage run -m pytest
+./py312/bin/python -m coverage report
 ```
 
 ## Project structure
