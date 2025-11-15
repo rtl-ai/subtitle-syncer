@@ -1,13 +1,37 @@
 from __future__ import annotations
 
 import re
+from io import BytesIO
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from fastapi import UploadFile
+from starlette.background import BackgroundTasks
+from starlette.requests import Request
 
 from app import main
 from app.services import CommandResult, PipelineError
+
+
+def build_request(method: str = "GET", path: str = "/") -> Request:
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "method": method,
+        "path": path,
+        "raw_path": path.encode(),
+        "root_path": "",
+        "scheme": "http",
+        "query_string": b"",
+        "headers": [],
+        "client": ("test", 123),
+        "server": ("testserver", 80),
+        "app": main.app,
+    }
+    return Request(scope, receive)
 
 
 @pytest.fixture(autouse=True)
@@ -21,9 +45,8 @@ def clean_jobs(tmp_path, monkeypatch):
     main.job_registry.clear()
 
 
-def test_process_success(monkeypatch, tmp_path):
-    client = TestClient(main.app)
-
+@pytest.mark.anyio("asyncio")
+async def test_process_success(monkeypatch, tmp_path):
     def fake_run_uchardet(path: Path):
         return "utf-8", CommandResult(["uchardet"], "utf-8", "")
 
@@ -38,21 +61,41 @@ def test_process_success(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "run_uchardet", fake_run_uchardet)
     monkeypatch.setattr(main, "run_pysubs2", fake_run_pysubs2)
     monkeypatch.setattr(main, "run_ffsubsync", fake_run_ffsubsync)
-    monkeypatch.setattr(main, "_schedule_job_cleanup", lambda *args, **kwargs: None)
 
-    files = {
-        "video_file": ("movie.mp4", b"video", "video/mp4"),
-        "subtitle_file": ("subs.srt", b"1-->2", "text/plain"),
-    }
+    async def noop_cleanup(*args, **kwargs):
+        return None
 
-    response = client.post("/process", files=files)
-    assert response.status_code == 200
-    html = response.text
-    assert "Download synced subtitle" in html
+    monkeypatch.setattr(main, "_schedule_job_cleanup", noop_cleanup)
 
-    match = re.search(r"/download/([a-f0-9]+)", html)
+    video_upload = UploadFile(file=BytesIO(b"video"), filename="movie.mp4")
+    subtitle_upload = UploadFile(file=BytesIO(b"1-->2"), filename="subs.srt")
+
+    background_tasks = BackgroundTasks()
+    request = build_request("POST", "/process")
+
+    response = await main.process_request(
+        request,
+        background_tasks,
+        video_upload,
+        subtitle_upload,
+        encoding_override="",
+        force_sami=False,
+    )
+    assert response.status_code == 202
+    html = response.body.decode()
+    match = re.search(r"data-job-id=\"([a-f0-9]+)\"", html)
     assert match
     job_id = match.group(1)
+
+    await background_tasks()
+
+    status_payload = await main.job_status(job_id)
+    assert status_payload["status"] == "completed"
+
+    result_request = build_request("GET", f"/result/{job_id}")
+    result_response = await main.job_result(result_request, job_id)
+    assert result_response.status_code == 200
+    assert "Download synced subtitle" in result_response.body.decode()
 
     final_path = main.BASE_DIR / job_id / "movie.srt"
     assert final_path.exists()
@@ -61,45 +104,77 @@ def test_process_success(monkeypatch, tmp_path):
     backup_path = main.BASE_DIR / job_id / "movie.srt.bk"
     assert backup_path.exists()
 
-    zip_response = client.get(f"/download/{job_id}/zip")
+    zip_response = await main.download_zip(job_id)
     assert zip_response.status_code == 200
 
 
-def test_process_failure(monkeypatch):
-    client = TestClient(main.app)
-
+@pytest.mark.anyio("asyncio")
+async def test_process_failure(monkeypatch):
     def fake_run_uchardet(path: Path):
         raise PipelineError("Failed")
 
     monkeypatch.setattr(main, "run_uchardet", fake_run_uchardet)
-    monkeypatch.setattr(main, "_schedule_job_cleanup", lambda *args, **kwargs: None)
 
-    files = {
-        "video_file": ("movie.mp4", b"video", "video/mp4"),
-        "subtitle_file": ("subs.srt", b"1-->2", "text/plain"),
-    }
+    async def noop_cleanup(*args, **kwargs):
+        return None
 
-    response = client.post("/process", files=files)
-    assert response.status_code == 500
-    assert "Processing failed" in response.text
+    monkeypatch.setattr(main, "_schedule_job_cleanup", noop_cleanup)
+
+    video_upload = UploadFile(file=BytesIO(b"video"), filename="movie.mp4")
+    subtitle_upload = UploadFile(file=BytesIO(b"1-->2"), filename="subs.srt")
+
+    background_tasks = BackgroundTasks()
+    request = build_request("POST", "/process")
+
+    response = await main.process_request(
+        request,
+        background_tasks,
+        video_upload,
+        subtitle_upload,
+        encoding_override="",
+        force_sami=False,
+    )
+    assert response.status_code == 202
+    html = response.body.decode()
+    match = re.search(r"data-job-id=\"([a-f0-9]+)\"", html)
+    assert match
+    job_id = match.group(1)
+
+    await background_tasks()
+
+    status_payload = await main.job_status(job_id)
+    assert status_payload["status"] == "failed"
+
+    result_request = build_request("GET", f"/result/{job_id}")
+    error_response = await main.job_result(result_request, job_id)
+    assert error_response.status_code == 500
+    assert "Processing failed" in error_response.body.decode()
     assert not list(main.BASE_DIR.iterdir())
 
 
-def test_cleanup_on_upload_failure(monkeypatch):
-    client = TestClient(main.app)
+@pytest.mark.anyio("asyncio")
+async def test_cleanup_on_upload_failure(monkeypatch):
+    from fastapi import HTTPException
 
-    def raise_on_save(*args, **kwargs):
-        from fastapi import HTTPException
-
+    async def raise_on_save(*args, **kwargs):
         raise HTTPException(status_code=413, detail="Too large")
 
     monkeypatch.setattr(main, "_save_upload_file", raise_on_save)
 
-    files = {
-        "video_file": ("movie.mp4", b"video", "video/mp4"),
-        "subtitle_file": ("subs.srt", b"1-->2", "text/plain"),
-    }
+    video_upload = UploadFile(file=BytesIO(b"video"), filename="movie.mp4")
+    subtitle_upload = UploadFile(file=BytesIO(b"1-->2"), filename="subs.srt")
 
-    response = client.post("/process", files=files)
-    assert response.status_code == 413
+    background_tasks = BackgroundTasks()
+    request = build_request("POST", "/process")
+
+    with pytest.raises(HTTPException):
+        await main.process_request(
+            request,
+            background_tasks,
+            video_upload,
+            subtitle_upload,
+            encoding_override="",
+            force_sami=False,
+        )
+
     assert not list(main.BASE_DIR.iterdir())
