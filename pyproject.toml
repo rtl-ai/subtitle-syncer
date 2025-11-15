@@ -23,6 +23,21 @@ dev = [
 requires = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["app"]
+exclude = ["tests", "tests.*", "py312", "py312.*"]
+
+[tool.setuptools.package-data]
+app = [
+    "templates/*.html",
+    "templates/**/*.html",
+    "static/*",
+    "static/**/*",
+]
+
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
