@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+  <div id="job-meta" data-job-id="{{ job_id }}" hidden></div>
+  <h2>Processing your files…</h2>
+  <p id="status-message">Preparing your job. This page will update automatically.</p>
+
+  <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+    <div class="progress-bar" id="progress-bar" aria-valuenow="0"></div>
+  </div>
+
+  <p><strong>Current step:</strong> <span id="current-step">Queued</span></p>
+  <p style="font-size: 0.95rem; color: #475569;">You can leave this tab open. We'll redirect you once the results are ready.</p>
+
+  <div id="connection-warning" class="alert" style="display: none;">
+    Connection lost while polling job status. Retrying…
+  </div>
+
+  <script>
+    const jobId = "{{ job_id }}";
+    const statusUrl = `/status/${jobId}`;
+    const resultUrl = `/result/${jobId}`;
+    const statusMessage = document.getElementById("status-message");
+    const currentStep = document.getElementById("current-step");
+    const progressBar = document.getElementById("progress-bar");
+    const warningBox = document.getElementById("connection-warning");
+
+    async function pollStatus() {
+      try {
+        const response = await fetch(statusUrl, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Unable to fetch status");
+        }
+        const data = await response.json();
+        warningBox.style.display = "none";
+
+        const percent = Math.round((data.progress || 0) * 100);
+        progressBar.style.width = `${percent}%`;
+        progressBar.setAttribute("aria-valuenow", String(percent));
+        currentStep.textContent = data.current_step || "Processing";
+        statusMessage.textContent = data.message || "Working on it…";
+
+        if (data.status === "completed" || data.status === "failed") {
+          window.location.href = resultUrl;
+          return;
+        }
+      } catch (error) {
+        warningBox.style.display = "block";
+      }
+      setTimeout(pollStatus, 2000);
+    }
+
+    pollStatus();
+  </script>
+{% endblock %}

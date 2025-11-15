@@ -2,13 +2,13 @@
 {% block content %}
   <div class="alert">
     <strong>Processing failed.</strong>
-    <p>{{ error_message }}</p>
+    <p>{{ job.error_message or "The pipeline was unable to complete." }}</p>
   </div>
 
-  {% if logs %}
+  {% if job.log_messages %}
     <section class="logs">
       <h3>Logs collected before the error</h3>
-      {% for name, entry in logs.items() %}
+      {% for name, entry in job.log_messages.items() %}
         <div class="log-entry">
           <h4>{{ name | upper }}</h4>
           <pre>{{ entry.stdout.strip() or "(no stdout)" }}</pre>
