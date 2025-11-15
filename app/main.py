@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -111,7 +112,7 @@ def _safe_cleanup(job_dir: Path) -> None:
 
 @app.on_event("startup")
 async def startup_cleanup() -> None:
-    cleanup_old_jobs(BASE_DIR, JOB_TTL_SECONDS)
+    await run_in_threadpool(cleanup_old_jobs, BASE_DIR, JOB_TTL_SECONDS)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -128,7 +129,7 @@ async def process_request(
     encoding_override: str = Form(default=""),
     force_sami: bool = Form(default=False),
 ):
-    cleanup_old_jobs(BASE_DIR, JOB_TTL_SECONDS)
+    await run_in_threadpool(cleanup_old_jobs, BASE_DIR, JOB_TTL_SECONDS)
 
     if not video_file or not subtitle_file:
         raise HTTPException(status_code=400, detail="Both video and subtitle files are required")
@@ -162,7 +163,7 @@ async def process_request(
     try:
         detected_encoding = input_encoding
         if not detected_encoding:
-            detected_encoding, uchardet_result = run_uchardet(subtitle_path)
+            detected_encoding, uchardet_result = await run_in_threadpool(run_uchardet, subtitle_path)
             logs["uchardet"] = uchardet_result
         else:
             logs["uchardet"] = CommandResult(
@@ -171,15 +172,19 @@ async def process_request(
                 stderr="",
             )
 
-        command = run_pysubs2(subtitle_path, normalized_subtitle_path, detected_encoding)
+        command = await run_in_threadpool(
+            run_pysubs2, subtitle_path, normalized_subtitle_path, detected_encoding
+        )
         logs["pysubs2"] = command
 
-        _backup_existing_subtitles(job_dir, video_basename)
+        await run_in_threadpool(_backup_existing_subtitles, job_dir, video_basename)
 
-        ffsubsync_result = run_ffsubsync(video_path, normalized_subtitle_path, aligned_temp_path)
+        ffsubsync_result = await run_in_threadpool(
+            run_ffsubsync, video_path, normalized_subtitle_path, aligned_temp_path
+        )
         logs["ffsubsync"] = ffsubsync_result
 
-        aligned_temp_path.replace(final_subtitle_path)
+        await run_in_threadpool(aligned_temp_path.replace, final_subtitle_path)
 
         zip_path: Optional[Path] = None
         files_for_zip: Dict[str, Path] = {f"{video_basename}.srt": final_subtitle_path}
@@ -190,7 +195,7 @@ async def process_request(
 
         if len(files_for_zip) > 1:
             zip_path = job_dir / f"{video_basename}_results.zip"
-            _create_zip_archive(files_for_zip, zip_path)
+            await run_in_threadpool(_create_zip_archive, files_for_zip, zip_path)
 
         result = JobResult(
             job_id=job_id,
@@ -235,7 +240,7 @@ async def _schedule_job_cleanup(job_id: str, job_dir: Path) -> None:
     await asyncio.sleep(JOB_TTL_SECONDS)
     await _remove_job(job_id)
     if job_dir.exists():
-        cleanup_old_jobs(BASE_DIR, JOB_TTL_SECONDS)
+        await run_in_threadpool(cleanup_old_jobs, BASE_DIR, JOB_TTL_SECONDS)
 
 
 @app.get("/download/{job_id}")

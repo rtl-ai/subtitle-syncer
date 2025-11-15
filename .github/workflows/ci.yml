@@ -11,41 +11,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-        with:
-          python-version: "3.12"
-      - name: Set up environment
-        run: |
-          uv venv py312 --python 3.12.12
-          uv pip install --python py312 .[dev]
+      - name: Install Python 3.12
+        run: uv python install 3.12.12
+      - name: Install dependencies
+        run: uv pip install --python 3.12.12 .[dev]
       - name: Ruff lint
-        run: uv run --python py312 ruff check .
+        run: uv run --python 3.12.12 ruff check .
 
   tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-        with:
-          python-version: "3.12"
-      - name: Set up environment
-        run: |
-          uv venv py312 --python 3.12.12
-          uv pip install --python py312 .[dev]
+      - name: Install Python 3.12
+        run: uv python install 3.12.12
+      - name: Install dependencies
+        run: uv pip install --python 3.12.12 .[dev]
       - name: Run pytest
-        run: uv run --python py312 pytest
+        run: uv run --python 3.12.12 pytest
 
   coverage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-        with:
-          python-version: "3.12"
-      - name: Set up environment
-        run: |
-          uv venv py312 --python 3.12.12
-          uv pip install --python py312 .[dev]
+      - name: Install Python 3.12
+        run: uv python install 3.12.12
+      - name: Install dependencies
+        run: uv pip install --python 3.12.12 .[dev]
       - name: Coverage report
         run: |
-          uv run --python py312 coverage run -m pytest
-          uv run --python py312 coverage report
+          uv run --python 3.12.12 coverage run -m pytest
+          uv run --python 3.12.12 coverage report
