@@ -31,8 +31,8 @@ This project uses [uv](https://docs.astral.sh/uv/latest/) for environment manage
 virtual environment with Python 3.12.12 and install dependencies via:
 
 ```bash
-uv venv py312 --python 3.12.12
-uv pip install --python py312 .[dev]
+uv venv py312 --python=3.12.12
+uv pip install --python ./py312/bin/python .[dev]
 ```
 
 Activate the environment (optional) and run the development server:
@@ -51,14 +51,14 @@ Run linting, the unit test suite, and coverage reports through uv:
 
 ```bash
 # Ruff lint checks
-uv run --python py312 ruff check .
+uv run --python ./py312/bin/python ruff check .
 
 # Unit tests
-uv run --python py312 pytest
+uv run --python ./py312/bin/python pytest
 
 # Coverage (includes running pytest)
-uv run --python py312 coverage run -m pytest
-uv run --python py312 coverage report
+uv run --python ./py312/bin/python coverage run -m pytest
+uv run --python ./py312/bin/python coverage report
 ```
 
 ## Project structure

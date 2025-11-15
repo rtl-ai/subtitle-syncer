@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
+from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
-from uuid import uuid4
 
 from .services import (
     CommandResult,
@@ -56,7 +54,10 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 def _ensure_extension(filename: str, allowed: set[str]) -> None:
     extension = Path(filename).suffix.lower()
     if extension not in allowed:
-        raise HTTPException(status_code=400, detail=f"File '{filename}' has an unsupported extension")
+        raise HTTPException(
+            status_code=400,
+            detail=f"File '{filename}' has an unsupported extension",
+        )
 
 
 def _sanitize_basename(filename: str) -> str:
@@ -73,7 +74,10 @@ async def _save_upload_file(upload: UploadFile, destination: Path, max_bytes: in
                 break
             size += len(chunk)
             if size > max_bytes:
-                raise HTTPException(status_code=413, detail=f"File '{upload.filename}' exceeds the size limit")
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File '{upload.filename}' exceeds the size limit",
+                )
             buffer.write(chunk)
     await upload.close()
 
@@ -163,7 +167,9 @@ async def process_request(
     try:
         detected_encoding = input_encoding
         if not detected_encoding:
-            detected_encoding, uchardet_result = await run_in_threadpool(run_uchardet, subtitle_path)
+            detected_encoding, uchardet_result = await run_in_threadpool(
+                run_uchardet, subtitle_path
+            )
             logs["uchardet"] = uchardet_result
         else:
             logs["uchardet"] = CommandResult(

@@ -8,38 +8,47 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12.12"
+      UV_PYTHON: ${{ github.workspace }}/py312/bin/python
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - name: Install Python 3.12
-        run: uv python install 3.12.12
+      - name: Create virtual environment
+        run: uv venv py312 --python=${PYTHON_VERSION}
       - name: Install dependencies
-        run: uv pip install --python 3.12.12 .[dev]
+        run: uv pip install --python $UV_PYTHON .[dev]
       - name: Ruff lint
-        run: uv run --python 3.12.12 ruff check .
+        run: uv run --python $UV_PYTHON ruff check .
 
   tests:
     runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12.12"
+      UV_PYTHON: ${{ github.workspace }}/py312/bin/python
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - name: Install Python 3.12
-        run: uv python install 3.12.12
+      - name: Create virtual environment
+        run: uv venv py312 --python=${PYTHON_VERSION}
       - name: Install dependencies
-        run: uv pip install --python 3.12.12 .[dev]
+        run: uv pip install --python $UV_PYTHON .[dev]
       - name: Run pytest
-        run: uv run --python 3.12.12 pytest
+        run: uv run --python $UV_PYTHON pytest
 
   coverage:
     runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12.12"
+      UV_PYTHON: ${{ github.workspace }}/py312/bin/python
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - name: Install Python 3.12
-        run: uv python install 3.12.12
+      - name: Create virtual environment
+        run: uv venv py312 --python=${PYTHON_VERSION}
       - name: Install dependencies
-        run: uv pip install --python 3.12.12 .[dev]
+        run: uv pip install --python $UV_PYTHON .[dev]
       - name: Coverage report
         run: |
-          uv run --python 3.12.12 coverage run -m pytest
-          uv run --python 3.12.12 coverage report
+          uv run --python $UV_PYTHON coverage run -m pytest
+          uv run --python $UV_PYTHON coverage report
