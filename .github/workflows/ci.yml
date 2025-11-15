@@ -21,7 +21,21 @@ jobs:
           uv pip install --python "${UV_PYTHON}" ".[dev]"
       - name: Verify tooling
         run: |
-          "${UV_PYTHON}" -m pip show ruff pytest coverage >/dev/null
+          "${UV_PYTHON}" - <<'PY'
+          import importlib.metadata as md
+
+          required = ("ruff", "pytest", "coverage")
+          missing = []
+
+          for dist in required:
+              try:
+                  md.version(dist)
+              except md.PackageNotFoundError:
+                  missing.append(dist)
+
+          if missing:
+              raise SystemExit(f"Missing required packages: {', '.join(missing)}")
+          PY
       - name: Ruff lint
         run: |
           "${UV_PYTHON}" -m ruff check .
