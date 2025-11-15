@@ -17,9 +17,14 @@ jobs:
       - name: Create virtual environment
         run: uv venv py312 --python=${PYTHON_VERSION}
       - name: Install dependencies
-        run: uv pip install --python $UV_PYTHON .[dev]
+        run: |
+          uv pip install --python "${UV_PYTHON}" ".[dev]"
+      - name: Verify tooling
+        run: |
+          "${UV_PYTHON}" -m pip show ruff pytest coverage >/dev/null
       - name: Ruff lint
-        run: $UV_PYTHON -m ruff check .
+        run: |
+          "${UV_PYTHON}" -m ruff check .
 
   tests:
     runs-on: ubuntu-latest
@@ -32,9 +37,11 @@ jobs:
       - name: Create virtual environment
         run: uv venv py312 --python=${PYTHON_VERSION}
       - name: Install dependencies
-        run: uv pip install --python $UV_PYTHON .[dev]
+        run: |
+          uv pip install --python "${UV_PYTHON}" ".[dev]"
       - name: Run pytest
-        run: $UV_PYTHON -m pytest
+        run: |
+          "${UV_PYTHON}" -m pytest
 
   coverage:
     runs-on: ubuntu-latest
@@ -47,8 +54,9 @@ jobs:
       - name: Create virtual environment
         run: uv venv py312 --python=${PYTHON_VERSION}
       - name: Install dependencies
-        run: uv pip install --python $UV_PYTHON .[dev]
+        run: |
+          uv pip install --python "${UV_PYTHON}" ".[dev]"
       - name: Coverage report
         run: |
-          $UV_PYTHON -m coverage run -m pytest
-          $UV_PYTHON -m coverage report
+          "${UV_PYTHON}" -m coverage run -m pytest
+          "${UV_PYTHON}" -m coverage report
