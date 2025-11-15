@@ -58,6 +58,12 @@ def test_process_success(monkeypatch, tmp_path):
     assert final_path.exists()
     assert final_path.read_text() == "aligned"
 
+    backup_path = main.BASE_DIR / job_id / "movie.srt.bk"
+    assert backup_path.exists()
+
+    zip_response = client.get(f"/download/{job_id}/zip")
+    assert zip_response.status_code == 200
+
 
 def test_process_failure(monkeypatch):
     client = TestClient(main.app)
@@ -76,3 +82,24 @@ def test_process_failure(monkeypatch):
     response = client.post("/process", files=files)
     assert response.status_code == 500
     assert "Processing failed" in response.text
+    assert not list(main.BASE_DIR.iterdir())
+
+
+def test_cleanup_on_upload_failure(monkeypatch):
+    client = TestClient(main.app)
+
+    def raise_on_save(*args, **kwargs):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=413, detail="Too large")
+
+    monkeypatch.setattr(main, "_save_upload_file", raise_on_save)
+
+    files = {
+        "video_file": ("movie.mp4", b"video", "video/mp4"),
+        "subtitle_file": ("subs.srt", b"1-->2", "text/plain"),
+    }
+
+    response = client.post("/process", files=files)
+    assert response.status_code == 413
+    assert not list(main.BASE_DIR.iterdir())

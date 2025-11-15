@@ -148,23 +148,28 @@ async def process_request(
     video_path = job_dir / f"original_video{Path(video_file.filename or '').suffix.lower()}"
     subtitle_path = job_dir / f"original_sub{Path(subtitle_file.filename or '').suffix.lower()}"
 
-    await _save_upload_file(video_file, video_path, MAX_VIDEO_SIZE)
-    await _save_upload_file(subtitle_file, subtitle_path, MAX_SUBTITLE_SIZE)
-
-    if force_sami and subtitle_path.suffix.lower() != ".smi":
-        forced_subtitle_path = subtitle_path.with_suffix(".smi")
-        subtitle_path.rename(forced_subtitle_path)
-        subtitle_path = forced_subtitle_path
-
-    video_basename = _sanitize_basename(video_file.filename or "video")
-    final_subtitle_path = job_dir / f"{video_basename}.srt"
-    normalized_subtitle_path = job_dir / "normalized_sub.srt"
-    aligned_temp_path = job_dir / "aligned_temp.srt"
-
     logs: Dict[str, CommandResult] = {}
 
     input_encoding = encoding_override.strip().lower()
+
     try:
+        await _save_upload_file(video_file, video_path, MAX_VIDEO_SIZE)
+        await _save_upload_file(subtitle_file, subtitle_path, MAX_SUBTITLE_SIZE)
+
+        if force_sami and subtitle_path.suffix.lower() != ".smi":
+            forced_subtitle_path = subtitle_path.with_suffix(".smi")
+            subtitle_path.rename(forced_subtitle_path)
+            subtitle_path = forced_subtitle_path
+
+        video_basename = _sanitize_basename(video_file.filename or "video")
+        final_subtitle_path = job_dir / f"{video_basename}.srt"
+        normalized_subtitle_path = job_dir / "normalized_sub.srt"
+        aligned_temp_path = job_dir / "aligned_temp.srt"
+
+        existing_match = job_dir / f"{video_basename}{subtitle_path.suffix.lower()}"
+        if not existing_match.exists():
+            shutil.copy2(subtitle_path, existing_match)
+
         detected_encoding = input_encoding
         if not detected_encoding:
             detected_encoding, uchardet_result = await run_in_threadpool(
@@ -225,6 +230,9 @@ async def process_request(
                 "ttl_minutes": ttl_minutes,
             },
         )
+    except HTTPException:
+        _safe_cleanup(job_dir)
+        raise
     except PipelineError as exc:
         _safe_cleanup(job_dir)
         return templates.TemplateResponse(
