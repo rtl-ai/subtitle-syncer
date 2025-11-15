@@ -199,10 +199,10 @@ async def process_request(
 
         zip_path: Optional[Path] = None
         files_for_zip: Dict[str, Path] = {f"{video_basename}.srt": final_subtitle_path}
-        backups = [p for p in job_dir.glob(f"{video_basename}.srt.bk")]
-        backups += [p for p in job_dir.glob(f"{video_basename}.smi.bk")]
-        for backup in backups:
-            files_for_zip[backup.name] = backup
+        for extension in (".srt", ".smi"):
+            backup = job_dir / f"{video_basename}{extension}.bk"
+            if backup.exists():
+                files_for_zip[backup.name] = backup
 
         if len(files_for_zip) > 1:
             zip_path = job_dir / f"{video_basename}_results.zip"
