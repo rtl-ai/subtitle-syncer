@@ -14,6 +14,24 @@
     {% endif %}
   </div>
 
+  <section class="event-feed">
+    <h3>Processing timeline</h3>
+    <ol class="event-feed__list">
+      {% for event in job.events %}
+        <li class="event-item">
+          <div class="event-header">
+            <span class="event-time">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            <span class="event-status" data-status="{{ event.status }}">{{ event.status.upper() }}</span>
+          </div>
+          <div class="event-step">{{ event.current_step }}</div>
+          {% if event.message %}
+            <p>{{ event.message }}</p>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+
   <section class="logs">
     <h3>Processing logs</h3>
     {% for name, entry in job.log_messages.items() %}

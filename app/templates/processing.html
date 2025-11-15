@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+  <div id="job-meta" data-job-id="{{ job_id }}" hidden></div>
+  <h2>Processing your files…</h2>
+  <p id="status-message">Preparing your job. This page will update automatically.</p>
+  <p class="ttl-hint">Results remain downloadable for roughly {{ ttl_minutes }} minutes after completion.</p>
+
+  <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+    <div class="progress-bar" id="progress-bar" aria-valuenow="0"></div>
+  </div>
+
+  <p><strong>Current step:</strong> <span id="current-step">Queued</span></p>
+  <p style="font-size: 0.95rem; color: #475569;">You can leave this tab open. We'll redirect you once the results are ready.</p>
+
+  <div id="connection-warning" class="alert" style="display: none;">
+    Connection lost while polling job status. Retrying…
+  </div>
+
+  <section class="event-feed">
+    <h3>Status timeline</h3>
+    <ol id="event-feed" class="event-feed__list"></ol>
+  </section>
+
+  <section class="logs">
+    <h3>Command output</h3>
+    <div id="log-feed" class="log-feed"></div>
+  </section>
+
+  <script>
+    const jobId = "{{ job_id }}";
+    const statusUrl = `/status/${jobId}`;
+    const resultUrl = `/result/${jobId}`;
+    const statusMessage = document.getElementById("status-message");
+    const currentStep = document.getElementById("current-step");
+    const progressBar = document.getElementById("progress-bar");
+    const warningBox = document.getElementById("connection-warning");
+    const eventFeed = document.getElementById("event-feed");
+    const logFeed = document.getElementById("log-feed");
+    let lastEventsSnapshot = "";
+    let lastLogsSnapshot = "";
+
+    function renderEvents(events) {
+      if (!Array.isArray(events)) {
+        return;
+      }
+      eventFeed.innerHTML = "";
+      events.forEach((event) => {
+        const item = document.createElement("li");
+        item.className = "event-item";
+
+        const header = document.createElement("div");
+        header.className = "event-header";
+
+        const timestamp = document.createElement("span");
+        timestamp.className = "event-time";
+        timestamp.textContent = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : "";
+        header.appendChild(timestamp);
+
+        const status = document.createElement("span");
+        status.className = "event-status";
+        status.dataset.status = event.status || "";
+        status.textContent = (event.status || "").toUpperCase();
+        header.appendChild(status);
+
+        item.appendChild(header);
+
+        const step = document.createElement("div");
+        step.className = "event-step";
+        step.textContent = event.current_step || "";
+        item.appendChild(step);
+
+        if (event.message) {
+          const body = document.createElement("p");
+          body.textContent = event.message;
+          item.appendChild(body);
+        }
+
+        eventFeed.appendChild(item);
+      });
+    }
+
+    function renderLogs(logs) {
+      if (!Array.isArray(logs)) {
+        return;
+      }
+      logFeed.innerHTML = "";
+      logs.forEach((log) => {
+        const entry = document.createElement("article");
+        entry.className = "log-entry";
+
+        const heading = document.createElement("h4");
+        heading.textContent = (log.name || "").toUpperCase();
+        entry.appendChild(heading);
+
+        const stdoutBlock = document.createElement("pre");
+        stdoutBlock.textContent = (log.stdout || "").trim() || "(no stdout)";
+        entry.appendChild(stdoutBlock);
+
+        if (log.stderr && log.stderr.trim()) {
+          const details = document.createElement("details");
+          const summary = document.createElement("summary");
+          summary.textContent = "stderr";
+          const stderrBlock = document.createElement("pre");
+          stderrBlock.textContent = log.stderr.trim();
+          details.appendChild(summary);
+          details.appendChild(stderrBlock);
+          entry.appendChild(details);
+        }
+
+        logFeed.appendChild(entry);
+      });
+    }
+
+    async function pollStatus() {
+      try {
+        const response = await fetch(statusUrl, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Unable to fetch status");
+        }
+        const data = await response.json();
+        warningBox.style.display = "none";
+
+        const percent = Math.round((data.progress || 0) * 100);
+        progressBar.style.width = `${percent}%`;
+        progressBar.setAttribute("aria-valuenow", String(percent));
+        currentStep.textContent = data.current_step || "Processing";
+        statusMessage.textContent = data.message || "Working on it…";
+
+        if (Array.isArray(data.events)) {
+          const serialized = JSON.stringify(data.events);
+          if (serialized !== lastEventsSnapshot) {
+            lastEventsSnapshot = serialized;
+            renderEvents(data.events);
+          }
+        }
+
+        if (Array.isArray(data.logs)) {
+          const serializedLogs = JSON.stringify(data.logs);
+          if (serializedLogs !== lastLogsSnapshot) {
+            lastLogsSnapshot = serializedLogs;
+            renderLogs(data.logs);
+          }
+        }
+
+        if (data.status === "completed" || data.status === "failed") {
+          window.location.href = resultUrl;
+          return;
+        }
+      } catch (error) {
+        warningBox.style.display = "block";
+      }
+      setTimeout(pollStatus, 2000);
+    }
+
+    pollStatus();
+  </script>
+{% endblock %}

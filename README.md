@@ -13,7 +13,7 @@ video, and returns the aligned subtitle file for download.
 - Normalize subtitle encoding and format with the `pysubs2` CLI.
 - Align subtitles against the reference video via `ffsubsync`.
 - Backup existing subtitles that share the video basename and offer a ZIP download with backups.
-- Provide detailed processing logs for debugging.
+- Provide detailed processing logs, a live timeline, and incremental progress updates during processing.
 
 ## Prerequisites
 
@@ -31,16 +31,36 @@ This project uses [uv](https://docs.astral.sh/uv/latest/) for environment manage
 virtual environment with Python 3.12.12 and install dependencies via:
 
 ```bash
-uv venv py312 --python=3.12.12
-uv pip install --python ./py312/bin/python .[dev]
+uv venv py312 --python 3.12.12
+
+# Activate the environment
+# macOS/Linux
+source py312/bin/activate
+# Windows (PowerShell)
+.\py312\Scripts\Activate.ps1
+# Windows (Command Prompt)
+py312\Scripts\activate.bat
+
+# Install dependencies into the active environment
+uv pip install .[dev]
 ```
 
-Activate the environment (optional) and run the development server:
+Once dependencies are installed you can run the development server with:
 
 ```bash
-source py312/bin/activate
 uvicorn app.main:app --reload
 ```
+
+When you submit files through the form the app redirects to a progress screen that polls the
+`/status/{job_id}` endpoint until the job completes. The JSON payload now includes:
+
+- `progress`, `status`, and `current_step` for easy progress bars.
+- `events`, a chronological timeline of pipeline milestones that feeds the UI timeline.
+- `logs`, an array of collected command outputs that update live on the processing page.
+
+Finished runs are available at `/result/{job_id}`. That page renders the final timeline, log output,
+and download buttons. You can also fetch the JSON status directly from `/status/{job_id}` if you want
+to build your own UI or integrate with another system.
 
 Open <http://localhost:8000> to access the form. Upload a video and subtitle file to run the
 pipeline.
@@ -53,13 +73,19 @@ Run linting, the unit test suite, and coverage reports through uv:
 # Ruff lint checks
 ./py312/bin/python -m ruff check .
 
-# Unit tests
+# Unit tests (fast unit + integration suite with stubbed CLI tools)
 ./py312/bin/python -m pytest
 
 # Coverage (includes running pytest)
 ./py312/bin/python -m coverage run -m pytest
 ./py312/bin/python -m coverage report
 ```
+
+The integration test (`tests/test_integration_pipeline.py`) spins up lightweight Python shims that
+emulate the external CLI tools so that CI can exercise the entire FastAPI request pipeline without
+requiring heavy native dependencies. If you have the real binaries installed on your machine you can
+manually validate them by running the application and uploading sample media—the live timeline and log
+panels will stream the subprocess output in real time.
 
 ## Project structure
 
