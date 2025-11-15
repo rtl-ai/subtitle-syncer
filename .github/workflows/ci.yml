@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - work
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12.12"
+      UV_PYTHON: ${{ github.workspace }}/py312/bin/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Create virtual environment
+        run: uv venv py312 --python=${PYTHON_VERSION}
+      - name: Install dependencies
+        run: |
+          uv pip install --python "${UV_PYTHON}" ".[dev]"
+      - name: Verify tooling
+        run: |
+          "${UV_PYTHON}" - <<'PY'
+          import importlib.metadata as md
+
+          required = ("ruff", "pytest", "coverage")
+          missing = []
+
+          for dist in required:
+              try:
+                  md.version(dist)
+              except md.PackageNotFoundError:
+                  missing.append(dist)
+
+          if missing:
+              raise SystemExit(f"Missing required packages: {', '.join(missing)}")
+          PY
+      - name: Ruff lint
+        run: |
+          "${UV_PYTHON}" -m ruff check .
+
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12.12"
+      UV_PYTHON: ${{ github.workspace }}/py312/bin/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Create virtual environment
+        run: uv venv py312 --python=${PYTHON_VERSION}
+      - name: Install dependencies
+        run: |
+          uv pip install --python "${UV_PYTHON}" ".[dev]"
+      - name: Run pytest
+        run: |
+          "${UV_PYTHON}" -m pytest
+
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12.12"
+      UV_PYTHON: ${{ github.workspace }}/py312/bin/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Create virtual environment
+        run: uv venv py312 --python=${PYTHON_VERSION}
+      - name: Install dependencies
+        run: |
+          uv pip install --python "${UV_PYTHON}" ".[dev]"
+      - name: Coverage report
+        run: |
+          "${UV_PYTHON}" -m coverage run -m pytest
+          "${UV_PYTHON}" -m coverage report
