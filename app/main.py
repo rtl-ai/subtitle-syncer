@@ -143,7 +143,7 @@ async def startup_cleanup() -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "index.html", {})
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 async def _run_pipeline(
@@ -335,9 +335,9 @@ async def process_request(
 
         ttl_minutes = max(1, JOB_TTL_SECONDS // 60)
         return templates.TemplateResponse(
-            request,
             "processing.html",
             {
+                "request": request,
                 "job_id": job_id,
                 "ttl_minutes": ttl_minutes,
             },
@@ -349,9 +349,9 @@ async def process_request(
     except PipelineError as exc:
         _safe_cleanup(job_dir)
         return templates.TemplateResponse(
-            request,
             "error.html",
             {
+                "request": request,
                 "job": JobState(
                     job_id=job_id,
                     created_at=datetime.utcnow(),
@@ -400,9 +400,9 @@ async def job_result(request: Request, job_id: str) -> HTMLResponse:
         if not job.final_subtitle_path or not job.final_subtitle_path.exists():
             raise HTTPException(status_code=404, detail="Result expired")
         return templates.TemplateResponse(
-            request,
             "result.html",
             {
+                "request": request,
                 "job": job,
                 "ttl_minutes": ttl_minutes,
             },
@@ -410,9 +410,9 @@ async def job_result(request: Request, job_id: str) -> HTMLResponse:
 
     if job.status == "failed":
         return templates.TemplateResponse(
-            request,
             "error.html",
             {
+                "request": request,
                 "job": job,
                 "ttl_minutes": ttl_minutes,
             },
@@ -420,9 +420,9 @@ async def job_result(request: Request, job_id: str) -> HTMLResponse:
         )
 
     return templates.TemplateResponse(
-        request,
         "processing.html",
         {
+            "request": request,
             "job_id": job_id,
             "ttl_minutes": ttl_minutes,
         },
